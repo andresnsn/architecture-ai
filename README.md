@@ -17,9 +17,12 @@ Para indexar trechos de código e configuração e pesquisar evidências com arq
 ```sh
 python3 -m architecture_ai index ~/orders-api ~/inventory-service ~/catalog-service
 python3 -m architecture_ai search "orders.created.v1"
+python3 -m architecture_ai report ~/orders-api ~/inventory-service ~/catalog-service
 ```
 
 O índice fica em `.architecture/evidence.sqlite`, ignorado pelo Git. Arquivos `.env`, dependências vendorizadas e arquivos grandes não entram no índice. Cada resultado informa repositório, arquivo e intervalo de linhas.
+
+O subcomando `report` grava `architecture.json`, `architecture.md` e `architecture.mmd` em `docs/generated/`. A associação de produtor e consumidor pelo mesmo tópico é confirmada pelo código; uma chamada REST associada a um repositório por variável de configuração é marcada como inferida. O diagrama usa linha tracejada para relações inferidas.
 
 ## Kafka local
 
