@@ -6,6 +6,7 @@ from pathlib import Path
 
 from architecture_ai.extractor import analyze_repositories
 from architecture_ai.retrieval import index_repositories, search_evidence
+from architecture_ai.render import generate_report
 
 
 def main() -> None:
@@ -21,6 +22,9 @@ def main() -> None:
     search.add_argument("query", nargs="+")
     search.add_argument("--database", type=Path, default=Path(".architecture/evidence.sqlite"))
     search.add_argument("--limit", type=int, default=5)
+    report = subparsers.add_parser("report", help="generate cited JSON, Markdown, and Mermaid files")
+    report.add_argument("repositories", nargs="+", type=Path)
+    report.add_argument("--output-dir", type=Path, default=Path("docs/generated"))
     args = parser.parse_args()
 
     if args.command == "extract":
@@ -44,4 +48,8 @@ def main() -> None:
             print()
         if not results:
             print("No matching evidence found.")
+    elif args.command == "report":
+        outputs = generate_report(args.repositories, args.output_dir)
+        for kind, path in outputs.items():
+            print("Wrote {}: {}".format(kind, path))
 
