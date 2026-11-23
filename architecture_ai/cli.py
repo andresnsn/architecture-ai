@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from architecture_ai.extractor import analyze_repositories
+from architecture_ai.retrieval import index_repositories, search_evidence
 
 
 def main() -> None:
@@ -13,6 +14,13 @@ def main() -> None:
     extract = subparsers.add_parser("extract", help="extract static facts with code evidence")
     extract.add_argument("repositories", nargs="+", type=Path)
     extract.add_argument("--output", type=Path, default=Path("architecture.json"))
+    index = subparsers.add_parser("index", help="index source files in a local FTS5 database")
+    index.add_argument("repositories", nargs="+", type=Path)
+    index.add_argument("--database", type=Path, default=Path(".architecture/evidence.sqlite"))
+    search = subparsers.add_parser("search", help="retrieve evidence chunks from the local index")
+    search.add_argument("query", nargs="+")
+    search.add_argument("--database", type=Path, default=Path(".architecture/evidence.sqlite"))
+    search.add_argument("--limit", type=int, default=5)
     args = parser.parse_args()
 
     if args.command == "extract":
@@ -22,4 +30,18 @@ def main() -> None:
         print("Wrote {} facts from {} repositories to {}".format(
             count, len(result["repositories"]), args.output
         ))
+    elif args.command == "index":
+        count = index_repositories(args.repositories, args.database)
+        print("Indexed {} evidence chunks in {}".format(count, args.database))
+    elif args.command == "search":
+        query = " ".join(args.query)
+        results = search_evidence(args.database, query, args.limit)
+        for item in results:
+            print("{}:{}:{}-{}".format(
+                item["repository"], item["path"], item["start_line"], item["end_line"]
+            ))
+            print(item["content"])
+            print()
+        if not results:
+            print("No matching evidence found.")
 
