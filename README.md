@@ -10,7 +10,16 @@ python3 -m architecture_ai extract ~/orders-api ~/inventory-service ~/catalog-se
 
 O comando reconhece rotas `net/http`, configurações usuais de produtor/consumidor `kafka-go` e chamadas REST feitas pelo cliente HTTP do Go. Cada fato inclui arquivo, linha e trecho. As rotas e configurações vistas diretamente são `confirmed`; associação de uma chamada REST a outro repositório é `inferred`.
 
-O extrator é deliberadamente limitado aos padrões usados no cenário de demonstração. Um padrão ausente fica desconhecido, em vez de ser adivinhado. SQLite FTS5 será usado numa próxima etapa para busca local de evidências, sem serviço externo.
+O extrator é deliberadamente limitado aos padrões usados no cenário de demonstração. Um padrão ausente fica desconhecido, em vez de ser adivinhado. SQLite FTS5 fornece a busca lexical local que forma a etapa de recuperação do RAG; a integração com um LLM vem depois.
+
+Para indexar trechos de código e configuração e pesquisar evidências com arquivo e linhas:
+
+```sh
+python3 -m architecture_ai index ~/orders-api ~/inventory-service ~/catalog-service
+python3 -m architecture_ai search "orders.created.v1"
+```
+
+O índice fica em `.architecture/evidence.sqlite`, ignorado pelo Git. Arquivos `.env`, dependências vendorizadas e arquivos grandes não entram no índice. Cada resultado informa repositório, arquivo e intervalo de linhas.
 
 ## Kafka local
 
@@ -24,5 +33,5 @@ Para rodar os serviços Go no host, configure `KAFKA_BROKERS=localhost:29092`. O
 
 ## Requisitos
 
-- Python 3.9 ou superior (usa apenas a biblioteca padrão nesta etapa).
+- Python 3.9 ou superior (usa apenas a biblioteca padrão no MVP atual).
 
