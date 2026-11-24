@@ -6,6 +6,18 @@ from architecture_ai.retrieval import index_repositories, search_evidence
 
 
 class RetrievalTests(unittest.TestCase):
+    def test_indexes_multiple_languages_and_dockerfile(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            repository = root / "service"
+            repository.mkdir()
+            (repository / "Application.kt").write_text('fun endpoint() = "catalogueSearch"\n', encoding="utf-8")
+            (repository / "Dockerfile").write_text('FROM sample\nENV APP_NAME=containerEvidence\n', encoding="utf-8")
+            database = root / "index.sqlite"
+            index_repositories([repository], database)
+            self.assertEqual(search_evidence(database, "catalogueSearch")[0]["path"], "Application.kt")
+            self.assertEqual(search_evidence(database, "containerEvidence")[0]["path"], "Dockerfile")
+
     def test_blank_first_line_does_not_shift_citations(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)

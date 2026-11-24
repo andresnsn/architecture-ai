@@ -10,7 +10,11 @@ SUPPORTED_SUFFIXES = {
     ".go", ".py", ".java", ".js", ".ts", ".tsx", ".jsx", ".md", ".txt",
     ".yaml", ".yml", ".json", ".toml", ".properties", ".xml", ".sql",
     ".sh", ".tf", ".proto",
+    ".cs", ".fs", ".rs", ".rb", ".php", ".kt", ".kts", ".scala",
+    ".c", ".h", ".cc", ".cpp", ".hpp", ".swift", ".dart", ".ex", ".exs",
+    ".erl", ".hrl", ".vue", ".svelte", ".graphql", ".gradle", ".ini",
 }
+SUPPORTED_FILENAMES = {"Dockerfile", "Makefile", "Procfile", "Gemfile", "Jenkinsfile"}
 IGNORED_DIRS = {
     ".git", ".architecture", ".venv", "__pycache__", "vendor", "node_modules",
     "target", "dist",
@@ -22,7 +26,7 @@ CHUNK_OVERLAP = 5
 
 def _iter_source_files(repository: Path) -> Iterable[Path]:
     for path in sorted(repository.rglob("*")):
-        if not path.is_file() or path.suffix.lower() not in SUPPORTED_SUFFIXES:
+        if not path.is_file() or (path.suffix.lower() not in SUPPORTED_SUFFIXES and path.name not in SUPPORTED_FILENAMES):
             continue
         relative_parts = path.relative_to(repository).parts
         if any(part in IGNORED_DIRS for part in relative_parts):
