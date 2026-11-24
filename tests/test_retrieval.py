@@ -6,6 +6,17 @@ from architecture_ai.retrieval import index_repositories, search_evidence
 
 
 class RetrievalTests(unittest.TestCase):
+    def test_blank_first_line_does_not_shift_citations(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            repository = root / "repo"
+            repository.mkdir()
+            (repository / "main.go").write_text('\nconst topic = "orders.created.v1"\n', encoding="utf-8")
+            database = root / "index.sqlite"
+            index_repositories([repository], database)
+            chunk = search_evidence(database, "orders.created.v1")[0]
+            self.assertEqual(chunk["start_line"] + chunk["content"].splitlines().index('const topic = "orders.created.v1"'), 2)
+
     def test_indexes_source_with_line_citations_and_skips_env_files(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)

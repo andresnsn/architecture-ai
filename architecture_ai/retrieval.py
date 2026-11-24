@@ -45,8 +45,8 @@ def _chunks(lines: Sequence[str]) -> Iterable[tuple[int, int, str]]:
     step = CHUNK_LINES - CHUNK_OVERLAP
     for start_index in range(0, len(lines), step):
         chunk = lines[start_index:start_index + CHUNK_LINES]
-        content = "\n".join(chunk).strip()
-        if content:
+        content = "\n".join(chunk)
+        if content.strip():
             yield start_index + 1, start_index + len(chunk), content
 
 

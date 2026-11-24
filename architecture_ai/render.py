@@ -2,6 +2,7 @@
 
 import json
 import re
+import html
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
@@ -69,9 +70,60 @@ def render_mermaid(architecture: Dict[str, object]) -> str:
             lines.append('    {} -->|"{}"| {}'.format(
                 _service_id(source), label, _service_id(target)
             ))
+    for repo in repositories:
+        for index, fact in enumerate(repo["facts"]):
+            if fact["kind"] == "calls_endpoint" and not fact["details"].get("target"):
+                details = fact["details"]
+                unknown = "{}_unknown_{}".format(_service_id(repo["service"]), index)
+                lines.append('    {}["Destino não identificado"]'.format(unknown))
+                lines.append('    {} -. "REST {} (destino não identificado)" .-> {}'.format(
+                    _service_id(repo["service"]), details.get("method", "?"), unknown))
     if len(lines) == 1:
         lines.append("    no_relationships[\"No communication relationships detected\"]")
     return "\n".join(lines) + "\n"
+
+
+def render_svg(architecture: Dict[str, object]) -> str:
+    """Create an offline visual overview with all repositories and observed links."""
+    repos = architecture["repositories"]
+    width, row = 1100, 180
+    height = max(260, 100 + len(repos) * row)
+    positions = {repo["service"]: (40, 70 + i * row) for i, repo in enumerate(repos)}
+    parts = ['<svg xmlns="http://www.w3.org/2000/svg" width="{}" height="{}" viewBox="0 0 {} {}">'.format(width, height, width, height),
+             '<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#52769a"/></marker></defs>',
+             '<rect width="100%" height="100%" fill="#f6f9fc"/>',
+             '<text x="40" y="35" font-family="Arial" font-size="22" font-weight="bold" fill="#183659">Visão da arquitetura — análise estática</text>']
+    edges = _communication_edges(repos)
+    for repo in repos:
+        name = repo["service"]
+        x, y = positions[name]
+        facts = repo["facts"]
+        summary = []
+        for fact in facts:
+            d = fact["details"]
+            if fact["kind"] == "exposes_endpoint": summary.append('REST {} {}'.format(d['method'], d['path']))
+            elif fact["kind"] == "publishes_to": summary.append('Publica Kafka: ' + d['topic'])
+            elif fact["kind"] == "consumes_from": summary.append('Consome Kafka: ' + d['topic'])
+            elif fact["kind"] == "calls_endpoint": summary.append('Chama REST: ' + d.get('path', 'desconhecido'))
+        parts.append('<rect x="{}" y="{}" width="400" height="140" rx="12" fill="white" stroke="#6b8baa"/>'.format(x,y))
+        parts.append('<text x="{}" y="{}" font-family="Arial" font-size="17" font-weight="bold" fill="#183659">{}</text>'.format(x+15,y+27,html.escape(name)))
+        for j, entry in enumerate((summary or ['Responsabilidade não identificada'])[:4]):
+            parts.append('<text x="{}" y="{}" font-family="Arial" font-size="13" fill="#344b60">{}</text>'.format(x+15,y+52+j*21,html.escape(entry[:55])))
+        outgoing = [e for e in edges if e[0] == name]
+        unresolved = [f for f in facts if f["kind"] == "calls_endpoint" and not f["details"].get("target")]
+        for j, edge in enumerate(outgoing):
+            target, label = edge[1], edge[2]
+            target_y = positions[target][1] + 110
+            route_x = 470 + j * 24
+            dash = ' stroke-dasharray="6 4"' if edge[3] == 'inferred' else ''
+            parts.append('<path d="M 440 {} L {} {} L {} {} L 440 {}" fill="none" stroke="#52769a" stroke-width="2"{} marker-end="url(#arrow)"/>'.format(y+45+j*25,route_x,y+45+j*25,route_x,target_y,target_y,dash))
+            parts.append('<text x="500" y="{}" font-family="Arial" font-size="14" fill="#183659">→ {}: {}</text>'.format(y+50+j*25,html.escape(target),html.escape(label)))
+        for j, fact in enumerate(unresolved):
+            parts.append('<text x="500" y="{}" font-family="Arial" font-size="14" fill="#8c5d20">→ REST {}: destino não identificado</text>'.format(y+50+(len(outgoing)+j)*25,html.escape(fact['details'].get('path','?'))))
+        if not outgoing and not unresolved:
+            parts.append('<text x="500" y="{}" font-family="Arial" font-size="14" fill="#64798c">Nenhuma ligação de saída identificada</text>'.format(y+50))
+    parts.append('</svg>')
+    return '\n'.join(parts)
 
 
 def render_markdown(architecture: Dict[str, object]) -> str:
@@ -142,7 +194,9 @@ def generate_report(repositories: Sequence[Path], output_directory: Path) -> Dic
     json_path = output_directory / "architecture.json"
     markdown_path = output_directory / "architecture.md"
     mermaid_path = output_directory / "architecture.mmd"
+    svg_path = output_directory / "architecture.svg"
     json_path.write_text(json.dumps(architecture, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     markdown_path.write_text(render_markdown(architecture), encoding="utf-8")
     mermaid_path.write_text(render_mermaid(architecture), encoding="utf-8")
-    return {"json": json_path, "markdown": markdown_path, "mermaid": mermaid_path}
+    svg_path.write_text(render_svg(architecture), encoding="utf-8")
+    return {"json": json_path, "markdown": markdown_path, "mermaid": mermaid_path, "svg": svg_path}

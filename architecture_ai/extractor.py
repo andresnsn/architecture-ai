@@ -133,11 +133,13 @@ def extract_repository(repository: Path) -> Dict[str, object]:
                 candidate_target = env_name[:-len("_BASE_URL")].lower()
                 target_config_evidence = evidence
                 break
-    if client_evidence and candidate_target:
-        ev = [target_config_evidence] + client_evidence[:2]
+    if client_evidence:
+        ev = ([target_config_evidence] if target_config_evidence else []) + client_evidence[:2]
+        observed_method = next((method for method in ("GET", "POST", "PUT", "PATCH", "DELETE")
+                                if any("http.Method" + method.title() in item["snippet"] for item in client_evidence)), None)
         facts.append(_fact(
             "calls_endpoint", service, "REST",
-            {"target_hint": candidate_target, "method": "GET", "path": rest_path or "unknown"},
+            {"target_hint": candidate_target or "unknown", "method": observed_method or "unknown", "path": rest_path or "unknown"},
             "inferred", ev,
         ))
 
