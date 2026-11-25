@@ -37,7 +37,7 @@ def _communication_edges(repositories: Sequence[Dict[str, object]]) -> List[Tupl
                 )
                 edges.append((
                     publisher["service"], consumer["service"],
-                    "Kafka: {} (confirmado)".format(topic), "confirmed", evidence,
+                    "Kafka: {} (inferido por configuração)".format(topic), "inferred", evidence,
                 ))
     for fact in facts:
         if fact["kind"] != "calls_endpoint":
@@ -101,10 +101,11 @@ def render_svg(architecture: Dict[str, object]) -> str:
         summary = []
         for fact in facts:
             d = fact["details"]
-            if fact["kind"] == "exposes_endpoint": summary.append('REST {} {}'.format(d['method'], d['path']))
+            if fact["kind"] == "exposes_endpoint": summary.append('HTTP {} {} ({})'.format(d['method'], d['path'], fact['certainty']))
             elif fact["kind"] == "publishes_to": summary.append('Publica Kafka: ' + d['topic'])
             elif fact["kind"] == "consumes_from": summary.append('Consome Kafka: ' + d['topic'])
             elif fact["kind"] == "calls_endpoint": summary.append('Chama REST: ' + d.get('path', 'desconhecido'))
+            elif fact["kind"] == "declares_resource": summary.append('Terraform: ' + d['type'] + '.' + d['name'])
         parts.append('<rect x="{}" y="{}" width="400" height="140" rx="12" fill="white" stroke="#6b8baa"/>'.format(x,y))
         parts.append('<text x="{}" y="{}" font-family="Arial" font-size="17" font-weight="bold" fill="#183659">{}</text>'.format(x+15,y+27,html.escape(name)))
         for j, entry in enumerate((summary or ['Responsabilidade não identificada'])[:4]):
@@ -147,7 +148,7 @@ def render_markdown(architecture: Dict[str, object]) -> str:
         for fact in facts:
             details = fact["details"]
             if fact["kind"] == "exposes_endpoint":
-                description = "exposes {} {} (confirmed)".format(details["method"], details["path"])
+                description = "route {} {} ({})".format(details["method"], details["path"], fact["certainty"])
             elif fact["kind"] == "publishes_to":
                 description = "publishes to Kafka topic `{}` (confirmed)".format(details["topic"])
             elif fact["kind"] == "consumes_from":
@@ -157,6 +158,8 @@ def render_markdown(architecture: Dict[str, object]) -> str:
                 description = "calls {} {} on {} (inferred relationship)".format(
                     details.get("method", "?"), details.get("path", "?"), destination
                 )
+            elif fact["kind"] == "declares_resource":
+                description = "declares Terraform {}.{} (confirmed declaration)".format(details["type"], details["name"])
             else:
                 description = "{} ({})".format(fact["kind"], fact["certainty"])
             lines.append("- {} — evidence: {}".format(description, _fact_citations(fact)))

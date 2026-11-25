@@ -22,7 +22,7 @@ python3 -m architecture_ai report ~/orders-api ~/inventory-service ~/catalog-ser
 
 O índice fica em `.architecture/evidence.sqlite`, ignorado pelo Git. Arquivos `.env`, dependências vendorizadas e arquivos grandes não entram no índice. Cada resultado informa repositório, arquivo e intervalo de linhas.
 
-O subcomando `report` grava `architecture.json`, `architecture.md` e `architecture.mmd` em `docs/generated/`. A associação de produtor e consumidor pelo mesmo tópico é confirmada pelo código; uma chamada REST associada a um repositório por variável de configuração é marcada como inferida. O diagrama usa linha tracejada para relações inferidas.
+O subcomando `report` grava `architecture.json`, `architecture.md` e `architecture.mmd` em `docs/generated/`. A associação de produtor e consumidor pelo mesmo tópico é inferida a partir da configuração observada; uma chamada REST associada a um repositório por variável de configuração é marcada como inferida. O diagrama usa linha tracejada para relações inferidas.
 
 ## Geração local com Ollama
 
@@ -70,3 +70,11 @@ python3 -m architecture_ai chat ~/dev/code/orders-api ~/dev/code/inventory-servi
 ```
 
 Para instalar e preparar o modelo local, consulte https://ollama.com e baixe `qwen3:8b` com `ollama pull qwen3:8b`. Abra o Ollama antes de iniciar o chat.
+
+## Análise de várias tecnologias e visão no navegador
+
+O extrator reconhece alguns padrões Go, rotas com anotações Spring, rotas simples em Node/Express e Python (Flask/FastAPI) e declarações de recursos Terraform. Uma rota obtida por anotação é apenas um fragmento observado: prefixos configurados em outro local podem alterar seu caminho final. Padrões não reconhecidos continuam disponíveis ao modelo por meio do RAG, desde que o arquivo tenha sido indexado e o trecho tenha sido recuperado. Isso não garante cobertura de todas as linguagens, frameworks ou arquivos de um projeto.
+
+Além dos blocos de linhas, o índice preserva funções Python completas quando possível. A busca mistura palavras da pergunta e termos de arquitetura, priorizando diversidade entre repositórios; ainda é busca lexical, não semântica. O modelo recebe os trechos e as descobertas estáticas. Suas respostas são classificadas por uma chamada ao Ollama antes da análise: perguntas fora do escopo recebem orientação e perguntas ambíguas pedem esclarecimento. O classificador pode cometer erros.
+
+Após uma resposta do modelo, o arquivo `docs/generated/arquitetura.html` mostra todos os repositórios analisados e relações com citações que correspondem às evidências fornecidas. Digite `/abrir` no chat para abrir esse arquivo no navegador. Uma citação literal válida não prova que ela sustenta a conclusão; revise os achados. O SVG e o Mermaid continuam sendo um relatório separado, gerado apenas pelos extratores estáticos. O chat regrava os arquivos a cada resposta. Instruções encontradas no código são dados não confiáveis, não comandos; a resistência a injeções e o vazamento ainda precisam ser avaliados.

@@ -12,6 +12,27 @@ from architecture_ai.retrieval import search_evidence
 PROMPTS_DIRECTORY = Path(__file__).resolve().parent.parent / "prompts"
 
 
+def _retrieve_context(database, query, limit):
+    """Mix user keywords with architecture terms and favor repository diversity."""
+    results = search_evidence(database, query, limit=max(limit, 4))
+    results += search_evidence(database, 'http kafka route endpoint topic resource service', limit=max(limit * 2, 8))
+    unique = []
+    seen = set()
+    for chunk in results:
+        key = (chunk['repository'], chunk['path'], chunk['start_line'], chunk['end_line'])
+        if key not in seen:
+            seen.add(key)
+            unique.append(chunk)
+    first = []
+    repositories = set()
+    for chunk in unique:
+        if chunk['repository'] not in repositories:
+            first.append(chunk)
+            repositories.add(chunk['repository'])
+    remainder = [chunk for chunk in unique if chunk not in first]
+    return (first + remainder)[:max(limit, 4)]
+
+
 def _evidence_records(architecture: Dict[str, object]) -> List[Dict[str, object]]:
     records = []
     for repository in architecture["repositories"]:
@@ -58,6 +79,17 @@ def _audit_citations(result: Dict[str, object], source_records: Sequence[Dict[st
     return warnings
 
 
+def source_records_for_query(query, repositories, database, limit=4):
+    architecture = analyze_repositories(repositories)
+    records = _evidence_records(architecture)
+    for chunk in _retrieve_context(database, query, limit):
+        for offset, snippet in enumerate(chunk['content'].splitlines()):
+            if snippet.strip():
+                records.append({'repository': chunk['repository'], 'file': chunk['path'],
+                                'line': chunk['start_line'] + offset, 'snippet': snippet.strip()})
+    return records
+
+
 def analyze_with_local_model(
     query: str,
     repositories: Sequence[Path],
@@ -72,7 +104,7 @@ def analyze_with_local_model(
 
     architecture = analyze_repositories(repositories)
     source_records = _evidence_records(architecture)
-    retrieved = search_evidence(database, query, limit=limit)
+    retrieved = _retrieve_context(database, query, limit)
     for chunk in retrieved:
         for offset, snippet in enumerate(chunk["content"].splitlines()):
             if snippet.strip():

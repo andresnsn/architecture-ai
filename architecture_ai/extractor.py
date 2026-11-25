@@ -143,6 +143,8 @@ def extract_repository(repository: Path) -> Dict[str, object]:
             "inferred", ev,
         ))
 
+    from architecture_ai.multilanguage import extract_additional
+    facts.extend(extract_additional(repository, service))
     return {"repository": str(repository), "service": service, "facts": facts}
 
 

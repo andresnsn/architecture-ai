@@ -1,5 +1,6 @@
 """Local, line-cited retrieval over source and configuration files."""
 
+import ast
 import re
 import sqlite3
 from pathlib import Path
@@ -54,6 +55,20 @@ def _chunks(lines: Sequence[str]) -> Iterable[tuple[int, int, str]]:
             yield start_index + 1, start_index + len(chunk), content
 
 
+def _python_functions(lines: Sequence[str]) -> Iterable[tuple[int, int, str]]:
+    """Add complete bounded Python functions; line chunks remain the fallback."""
+    try:
+        tree = ast.parse('\n'.join(lines))
+    except (SyntaxError, ValueError):
+        return
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and getattr(node, 'end_lineno', None):
+            start = min([node.lineno] + [decorator.lineno for decorator in node.decorator_list])
+            end = node.end_lineno
+            if end - start < 120:
+                yield start, end, '\n'.join(lines[start-1:end])
+
+
 def index_repositories(repositories: Sequence[Path], database: Path) -> int:
     """Rebuild an FTS5 index. Returns the number of indexed chunks."""
     database = database.expanduser().resolve()
@@ -81,7 +96,10 @@ def index_repositories(repositories: Sequence[Path], database: Path) -> int:
                 except (OSError, UnicodeDecodeError):
                     continue
                 relative_path = path.relative_to(repository).as_posix()
-                for start_line, end_line, content in _chunks(lines):
+                chunks = list(_chunks(lines))
+                if path.suffix.lower() == '.py':
+                    chunks.extend(_python_functions(lines))
+                for start_line, end_line, content in chunks:
                     connection.execute(
                         "INSERT INTO evidence(repository,path,start_line,end_line,content) "
                         "VALUES(?,?,?,?,?)",
